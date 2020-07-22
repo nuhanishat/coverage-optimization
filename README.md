@@ -6,3 +6,6 @@
 - coverage_gui.py contains the visualizer classes. Creates the GUI
 - coverage_test.py is meant to have all the test cases and reset methods
 - transforms.py contains methods for transforming shapes
+
+
+Run coverage_gui.py
