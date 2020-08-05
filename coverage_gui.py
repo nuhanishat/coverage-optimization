@@ -51,7 +51,8 @@ class DrawGeometry(QWidget):
 		# Get the made up surface for testing
 		self.surface = self.my_geometry.test_surface
 
-		# Get the cube resolution/sprayer movement res
+		# Get the grid size
+		self.grid_size = self.my_geometry.grid_size
 
 		'''We will get the pose from the Sprayer class.
 		This is the default starting pose for now. We
@@ -82,7 +83,8 @@ class DrawGeometry(QWidget):
 		qp.begin(self)
 
 		self.draw_spray(qp)
-		self.draw_surface(qp)
+		# self.draw_test_surface(qp)
+		self.draw_mold_surface(qp)
 
 		qp.end()
 
@@ -139,7 +141,7 @@ class DrawGeometry(QWidget):
 		return [[x_1, y_1, 1], [x_2, y_2, 1], [x_3, y_3, 1], [x_4, y_4, 1], [x_5, y_5, 1], [x_6, y_6, 1]]
 
 
-	def draw_surface(self,qp):
+	def draw_robot_base(self,qp):
 		'''Draw the surface I made up for now'''
 		pen = QPen(Qt.black, 3, Qt.SolidLine)
 		qp.setPen(pen)
@@ -172,6 +174,56 @@ class DrawGeometry(QWidget):
 			# 		x_i_next += inc
 
 			# if diff_y != 0:
+
+	def draw_mold_surface(self,qp):
+		'''Draw the volxalized surface'''
+		pen = QPen(Qt.red, 3, Qt.SolidLine)
+		qp.setPen(pen)
+
+		voxel_grid = self.my_geometry.voxel_grid
+
+		surface_cells = []
+
+		# Narrow down cells close to surface 
+		for j in range(self.grid_size):
+			for i in range(self.grid_size):
+				if -0.08< voxel_grid[i,j] < 0.08 :
+					surface_cells.append([i,j])
+		
+		
+		# Save points on surface from linear interpolation
+		surface_points = []
+
+		for i in range(len(surface_cells)):
+			temp = self.my_geometry.marching_cubes_2D_per_cell(surface_cells[i])
+			print(temp)
+			if len(temp) > 0:
+				surface_points.append(temp[0])
+				surface_points.append(temp[1])
+
+
+		# Draw the surface
+		for i in range(len(surface_points)):
+			i_next = (i+1)%len(surface_points)
+			curr_point = surface_points[i]
+			next_point = surface_points[i_next]
+
+			x_curr= curr_point[0]
+			y_curr= curr_point[1]
+
+			x_next = next_point[0]
+			y_next = next_point[1]
+
+			# offset_x = 0.3
+			# offset_y = -0.2
+
+			offset_x = 0
+			offset_y = 0
+			
+			
+
+			if abs(x_curr-x_next) <= self.my_geometry.cube_size*3 and abs(y_curr-y_next) <= self.my_geometry.cube_size*3:
+				qp.drawLine(self.x_map(x_curr+offset_x), self.y_map(y_curr+offset_y), self.x_map(x_next+offset_x), self.y_map(y_next+offset_y))
 
 	
 	def draw_spray(self, qp):
