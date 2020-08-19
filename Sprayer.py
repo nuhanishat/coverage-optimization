@@ -8,6 +8,7 @@
 # from MoveSprayer import *
 
 import numpy as np
+import math
 
 class Sprayer():
 	def __init__(self):
@@ -30,14 +31,70 @@ class Sprayer():
 		
 		# Find cells representing sprayer volume
 		volume_cells = []
-		return volume_cells
+		
+		
+		
+		start_pos[0] = int(pose[0])
+		start_pos[1] = int(pose[1])
+		x_new = start_pos[0]
+		y_new = start_pos[1]
+		end_pos = [0,0]
+
+
+		try:
+			slope = np.tan(angle)
+		except:
+			slope = np.inf
+		a = length*np.cos(angle)
+		end_pos[0] = int(start_pos[0] + a) 
+		b = length*np.sin(angle)
+		end_pos[1] = int(start_pos[1] + b)
+
+		dx = end_pos[0] - start_pos[0]
+		dy = end_pos[1] - start_pos[1]
+
+		steps = 0
+		if (abs(dx) > abs(dy)):
+			steps = abs(dx)
+		else:
+			steps = abs(dy)
+
+		Xinc = float(dx)/float(steps)
+		Yinc = float(dy)/float(steps)
+
+		for i in range(0, steps):
+			x_new = x_new + Xinc
+			y_new = y_new + Yinc 
+			volume_cells.append([x_new, y_new])
+
+		return volume_cells	
 
 
 
 	def check_if_inside_spray_volume(self, cell, volume_cells):
 		''' Checks if cells in surface geometry are 
 		inside the sprayer geometry given a pose.'''
-		
+		distance = math.sqrt((cell[0] - pose[0])**2 + (cell[1] - pose[1])**2 + (cell[2] - pose[2])**2)
+
+		threshold_min = 0.05
+		threshold_max = 0.2
+		try:
+			slope = -1/(threshold_max - threshold_min)
+
+		except:
+			slope = np.inf
+
+		if distance < threshold_min:
+			distance_coverage = 1
+
+		elif distance > threshold_max:
+			distance_coverage = 0
+
+		else:
+			distance_coverage = slope*(distance - threshold_max)
+
+		# return distance_coverage
+
 		# return True/False
 		flag = False
 		if collision:
