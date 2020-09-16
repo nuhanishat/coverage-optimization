@@ -91,6 +91,9 @@ class Geometry():
 
 		# Update with dot_product coverage percentage
 		covered_dot = np.zeros(64)
+
+
+
 		self.covered_grid += covered_dot
 
 		# Use Sprayer().is_inside_sprayer() for distance coverage
