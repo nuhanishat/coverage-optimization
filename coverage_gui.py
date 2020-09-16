@@ -8,10 +8,10 @@ from Sprayer import *
 from transforms import *
 from Geometry import *
 
-from PyQt5 import QtGui 
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGroupBox, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt5.QtGui import QPainter, QBrush, QPen, QPolygon, QLinearGradient, QFont, QColor
-from PyQt5.QtCore import Qt, QPoint, QSize
+from PyQt5 import QtGui
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGroupBox, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSlider
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
 
 import sys
 import numpy as np
@@ -22,13 +22,15 @@ class DrawGeometry(QWidget):
 		super(QWidget, self).__init__()
 		self.title = "Coverage Test Visualizer"
 
+		
+		# For slider
 		self.gui = gui
 
 		# Window size param
 		self.top = 150
 		self.left = 150
-		self.width = 900
-		self.height = 900
+		self.width = 1000
+		self.height = 1000
 
 		reset = QPushButton("Reset", self)
 		reset.move(10,20)
@@ -49,7 +51,8 @@ class DrawGeometry(QWidget):
 		self.spread_angle = self.my_sprayer.spread_angle
 
 		# Get the made up surface for testing
-		self.surface = self.my_geometry.test_surface
+		# self.surface = self.my_geometry.test_surface
+		self.robot_base = self.my_geometry.robot_base
 
 		# Get the grid size
 		self.grid_size = self.my_geometry.grid_size
@@ -59,6 +62,13 @@ class DrawGeometry(QWidget):
 		will update this variable to change sprayer pose'''
 		
 		self.pose = [0.5, 0.5, 0] # Should be 6D. 3D for now
+
+		# Change this to change table height 
+		self.table_height = 0.15
+
+		# self.new_voxel = self.my_geometry.my_compute_mesh_to_voxel()
+
+
 
 		self.InitWindow()
 
@@ -84,7 +94,11 @@ class DrawGeometry(QWidget):
 
 		self.draw_spray(qp)
 		# self.draw_test_surface(qp)
-		self.draw_mold_surface(qp)
+		self.draw_robot_base(qp)
+		self.draw_mold_surface(30,qp)
+		self.draw_texts(qp)
+		self.draw_table_top(qp)
+		self.draw_sprayer(30,qp)
 
 		qp.end()
 
@@ -147,23 +161,25 @@ class DrawGeometry(QWidget):
 		qp.setPen(pen)
 		
 
-		inc = 0.01
+		
 
-		for i in range(len(self.surface)-1):
-			i_next = (i+1)%len(self.surface)
-			curr_point = self.surface[i]
-			next_point = self.surface[i_next]
+		for i in range(len(self.robot_base)):
+			i_next = (i+1)%len(self.robot_base)
+			curr_point = self.robot_base[i]
+			next_point = self.robot_base[i_next]
 
 			x_curr= curr_point[0]
-			y_curr= curr_point[1]
+			y_curr= curr_point[1] + self.table_height
 
 			x_next = next_point[0]
-			y_next = next_point[1]
+			y_next = next_point[1] + self.table_height
 
 			# diff_x = x_next - x_curr
 			# diff_y = y_next - y_curr
 
 			qp.drawLine(self.x_map(x_curr), self.y_map(y_curr), self.x_map(x_next), self.y_map(y_next))
+
+			
 
 			# gradient = diff_y/diff_x
 
@@ -175,12 +191,14 @@ class DrawGeometry(QWidget):
 
 			# if diff_y != 0:
 
-	def draw_mold_surface(self,qp):
-		'''Draw the volxalized surface'''
+	def draw_mold_surface(self,slice_index,qp):
+		'''Draw the volxalized mold surface'''
 		pen = QPen(Qt.red, 3, Qt.SolidLine)
 		qp.setPen(pen)
 
-		voxel_grid = self.my_geometry.voxel_grid
+		voxel_grid = self.my_geometry.get_2D_mold_slice(self.my_geometry.compute_mesh_to_volume('voxel_mold_new.npy'),slice_index)
+
+		# voxel_grid = self.my_geometry.voxel_grid
 
 		surface_cells = []
 
@@ -195,8 +213,8 @@ class DrawGeometry(QWidget):
 		surface_points = []
 
 		for i in range(len(surface_cells)):
-			temp = self.my_geometry.marching_cubes_2D_per_cell(surface_cells[i])
-			print(temp)
+			temp = self.my_geometry.marching_cubes_2D_per_cell(voxel_grid, surface_cells[i])
+		
 			if len(temp) > 0:
 				surface_points.append(temp[0])
 				surface_points.append(temp[1])
@@ -214,16 +232,67 @@ class DrawGeometry(QWidget):
 			x_next = next_point[0]
 			y_next = next_point[1]
 
-			# offset_x = 0.3
-			# offset_y = -0.2
 
-			offset_x = 0
-			offset_y = 0
+			# Change these value to change mold position
+			offset_x = 0.5*(self.my_geometry.cube_size/0.01)
+			offset_y = self.table_height - 0.285*(self.my_geometry.cube_size/0.01)
 			
 			
 
 			if abs(x_curr-x_next) <= self.my_geometry.cube_size*3 and abs(y_curr-y_next) <= self.my_geometry.cube_size*3:
 				qp.drawLine(self.x_map(x_curr+offset_x), self.y_map(y_curr+offset_y), self.x_map(x_next+offset_x), self.y_map(y_next+offset_y))
+
+	def draw_sprayer(self, slice_index, qp):
+		'''Draw sprayer from volxalised sprayer stl model'''
+		pen = QPen(Qt.red, 3, Qt.SolidLine)
+		qp.setPen(pen)
+
+		voxel_grid = self.my_geometry.get_2D_mold_slice(self.my_geometry.compute_mesh_to_volume('voxel_sprayer.npy'),slice_index)
+
+		# voxel_grid = self.my_geometry.voxel_grid
+
+		surface_cells = []
+
+		# Narrow down cells close to surface 
+		for j in range(self.grid_size):
+			for i in range(self.grid_size):
+				if -0.06< voxel_grid[i,j] < 0.06 :
+					surface_cells.append([i,j])
+		
+		
+		# Save points on surface from linear interpolation
+		surface_points = []
+
+		for i in range(len(surface_cells)):
+			temp = self.my_geometry.marching_cubes_2D_per_cell(voxel_grid, surface_cells[i])
+		
+			if len(temp) > 0:
+				surface_points.append(temp[0])
+				surface_points.append(temp[1])
+
+
+		# Draw the surface
+		for i in range(len(surface_points)):
+			i_next = (i+1)%len(surface_points)
+			curr_point = surface_points[i]
+			next_point = surface_points[i_next]
+
+			x_curr= curr_point[0]
+			y_curr= curr_point[1]
+
+			x_next = next_point[0]
+			y_next = next_point[1]
+
+
+			# Change these value to change mold position
+			offset_x = 0.2*(self.my_geometry.cube_size/0.01)
+			offset_y = self.table_height - 0.1*(self.my_geometry.cube_size/0.01)
+			
+			
+
+			if abs(x_curr-x_next) <= self.my_geometry.cube_size*2 and abs(y_curr-y_next) <= self.my_geometry.cube_size*2:
+				qp.drawLine(self.x_map(x_curr+offset_x), self.y_map(y_curr+offset_y), self.x_map(x_next+offset_x), self.y_map(y_next+offset_y))
+
 
 	
 	def draw_spray(self, qp):
@@ -255,6 +324,42 @@ class DrawGeometry(QWidget):
 		qp.drawLine(self.x_map(rect_axis[0][0]), self.y_map(rect_axis[0][1]), self.x_map(rect_axis[1][0]), self.y_map(rect_axis[1][1]))
 
 
+	
+
+	def draw_table_top(self, qp):
+		'''Draw a line that represents the table top'''
+		pen = QPen()
+		pen.setColor(QtGui.QColor('black'))
+		pen.setWidth(2)
+		qp.setPen(pen)	
+
+		qp.drawLine(self.x_map(0),self.y_map(self.table_height),self.x_map(1.0),self.y_map(self.table_height))
+
+
+	def draw_texts(self, qp):
+		pen = QPen()
+		pen.setColor(QtGui.QColor('green'))
+		pen.setWidth(1)
+	
+		qp.setPen(pen)
+
+		font = QtGui.QFont()
+		font.setFamily("Times")
+		# font.setBold(True)
+		font.setPointSize(15)
+		qp.setFont(font)
+
+		# Robot Base
+
+		qp.drawText(self.x_map(0.03), self.y_map(0.02 + self.table_height), 'Robot Base')
+		
+
+		# Mold
+		qp.drawText(self.x_map(0.86), self.y_map(self.table_height + 0.025), 'Mold')
+
+		# 
+
+
 	def show_reset(self):
 		# Reseting sprayer pose
 		self.pose = [0.1, 0.8, np.pi/4]
@@ -271,6 +376,63 @@ class DrawGeometry(QWidget):
 			self.gui.repaint()
 
 
+class MoldSlicer(QWidget):
+	gui = None
+
+	def __init__(self, name, low = 0, high = 65, initial_value = 20, ticks = 66):
+		'''Class for the making 2D slicing of the mold'''
+		
+		# name: Displayed name of slider
+		# low: Minimum value on slider
+		# high : Maximum value on slider
+		# initial_value: Should be a value of between low and high
+		# ticks: Resolution of slider
+
+		# Input values
+		self.name = name 
+		self.low = low 
+		self.range = high - low
+		self.ticks = ticks
+
+		# Text value Widget
+		QWidget.__init__(self)
+		layout = QHBoxLayout()
+		self.setLayout(layout)
+
+		self.slider = QSlider(Qt.Horizontal)
+		self.slider.setMinimum(0)
+		self.slider.setMaximum(ticks)
+
+		# call back - call change_value when slider changed
+		self.slider.valueChanged.connect(self.change_value)
+
+		self.display = QLabel()
+		self.set_value(initial_value)
+		self.change_value()
+
+		layout.addWidget(self.display)
+		layout.addWidget(self.slider)
+
+	# Use this to get the value between low/high
+	def value(self):
+		# Return the current value of the slider 
+		return (self.slider.value()/self.ticks) * self.range + self.low
+
+	# Called when the value changes - low/high
+	def change_value(self):
+		if (MoldSlicer.gui != None):
+			MoldSlicer.gui.repaint()
+		self.display.setText('{0}: {1:.0f}'.format(self.name,self.value()))
+
+	# Use this to change the value
+	def set_value(self, value_f):
+		value_tick = self.ticks * (value_f - self.low)/self.range
+		value_tick = min(max(0, value_tick), self.ticks)
+		self.slider.setValue(int(value_tick))
+		self.display.setText('{0}: {1:.0f}'.format(self.name, self.value()))
+
+
+
 class GUIWindow(QMainWindow):
 	'''Creates the GUI Interface for test visualization'''
 	def __init__(self):
@@ -281,12 +443,19 @@ class GUIWindow(QMainWindow):
 		quit_button = QPushButton('Quit')
 		quit_button.clicked.connect(App.exit)
 
-		# parameters = QGroupBox('Test Cases')
-		# parameter_layout = QVBoxLayout()
+		parameters = QGroupBox('Test Cases')
+		parameter_layout = QVBoxLayout()
 
+		self.slice = MoldSlicer('Slice')
+		self.slice_sld = [self.slice]
+
+		parameter_layout.addWidget(self.slice)
+		parameters.setLayout(parameter_layout)
 
 		# Draw stuff
 		self.draw = DrawGeometry(self)
+
+		self.slice.slider.valueChanged.connect(self.trigger_repaint)
 
 		# The layout of the interface
 		widget = QWidget()
@@ -294,18 +463,32 @@ class GUIWindow(QMainWindow):
 
 		top_level_layout = QHBoxLayout()
 		widget.setLayout(top_level_layout)
-		# left_side_layout = QVBoxLayout()
+		left_side_layout = QVBoxLayout()
 		right_side_layout = QVBoxLayout()
 
-		# left_side_layout.addWidget(parameters)
+		left_side_layout.addWidget(parameters)
 		right_side_layout.addWidget(self.draw)
 		right_side_layout.addWidget(quit_button)
 
-		# top_level_layout.addLayout(left_side_layout)
+		top_level_layout.addLayout(left_side_layout)
 		top_level_layout.addLayout(right_side_layout)
 
+		# Create Labels for objects
+		# robot_text = QLabel()
+		# robot_text.setText("Robot Base")
+
+		# robot_text.setAlignment(Qt.AlignLeft)
+
+		# self.robot_base_label = QLabel()
+		# canvas = QtGui.QPixmap(400, 300)
+		# self.robot_base_label.setPixmap(canvas)
+		# self.setCentralWidget(self.robot_base_label)
+		# self.draw_robot_text()
+
+		MoldSlicer.gui = self
+
 	
-	def trigger_repaint():
+	def trigger_repaint(self):
 		self.draw.repaint()
 
 	def draw(self,data):

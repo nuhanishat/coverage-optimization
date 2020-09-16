@@ -3,6 +3,12 @@
 # Author : Nuha Nishat
 # Date: 6/26/20
 
+# from mesh_to_sdf import mesh_to_voxels
+
+import trimesh
+# import skimage
+
+
 
 import numpy as np
 
@@ -14,36 +20,52 @@ class Geometry():
 		# Load model
 		#self.model = file_name
 
-
-
 		# Cube size/cell resolution
 		# self.cube_size = cube_size
-		self.cube_size = 0.01
+		self.cube_size = 0.008
 
 		self.grid_size = 66
 
-		# Save the mold grid as a class variable
-		# Currently returning a slice
-		self.voxel_grid = self.compute_mesh_to_volume()
+
+		
+		self.voxel_sprayer = self.compute_mesh_to_volume('voxel_sprayer.npy')
 
 		# Save a seperate grid for coverage
 		
 		self.covered_grid = np.zeros(self.grid_size)
 
 		# Made up surface for testing defined by a series of points
-		self.test_surface = [[0, 0.1],[0.3, 0.1],[0.3, 0.3],[0.7, 0.3],[0.7, 0.1],[1.0, 0.1]]
+		#self.test_surface = [[0, 0.1],[0.1, 0.1],[0.3, 0.3],[0.7, 0.3],[0.7, 0.1],[1.0, 0.1]]
+
+		# Make the robot base
+		self.robot_base = [[0, 0.05],[0.2, 0.05],[0.2, 0],[0, 0]]
+
+		# Sprayer geometry 
+
+		# Trimesh test geometry
+		#self.new_voxel = self.my_compute_mesh_to_voxel()
 
 
+	def my_compute_mesh_to_voxel(self):
+		'''Attempting to understand this voxel mess'''
+		mesh = trimesh.load('/home/nuhanishat/kinova_ws/src/Mold1.STL')
+		voxel = mesh.voxelized(pitch=self.cube_size)
 
-	def compute_mesh_to_volume(self):
+		print(voxel.as_boxes)
+
+
+	def compute_mesh_to_volume(self, file_name):
 		'''Returns SDF grid'''
-		grid = np.load('/home/nuhanishat/kinova_ws/src/voxel_grid.npy')
+		grid = np.load('/home/nuhanishat/kinova_ws/src/' + file_name)
+		return grid
+
+
+	def get_2D_mold_slice(self, grid, slice_index):
 
 		plane_slice = np.zeros((self.grid_size,self.grid_size))
-
 		for i in range(66):
 			for j in range(66):
-				plane_slice[i,j] = grid[i,j,30] # Get the slice at depth, z = 30 
+				plane_slice[i,j] = grid[i,j,slice_index] # Get the slice at depth, z = 30 
 		
 		# Do Math
 		return plane_slice
@@ -154,14 +176,14 @@ class Geometry():
 		return int_point
 
 
-	def marching_cubes_2D_per_cell(self, point):
+	def marching_cubes_2D_per_cell(self, slice_grid ,point):
 		'''Extracts the surface from voxels'''
 
 		# Get the four vertices of cube
 		vertices = self.compute_square_vertices(point)
 
 		# Get values of vertices 
-		sdf_values = [self.voxel_grid[x[0],x[1]] for x in vertices]
+		sdf_values = [slice_grid[x[0],x[1]] for x in vertices]
 
 		# Do some linear interpolation to find the point in an edge
 		# with an sdf value of 0. This is where the surface is.
@@ -197,6 +219,7 @@ class Geometry():
 			# print('Appending3')
 			surface_points.append(self.sdf_linear_interpolation(v_2, sdf_2, v_4, sdf_4))
 
+		#
 		if sdf_3*sdf_4 < 0:
 			# print('Appending4')
 			surface_points.append(self.sdf_linear_interpolation(v_3, sdf_3, v_4, sdf_4))
