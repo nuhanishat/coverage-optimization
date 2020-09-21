@@ -11,14 +11,17 @@ import trimesh
 
 
 import numpy as np
-
+from mesh_to_sdf import mesh_to_voxels
+import trimesh
+import skimage.measure 
+import pyrender
 
 class Geometry():
 	def __init__(self, file_name = "model.stl", cube_size= 0.01):
 		''' Class that deals with all things mold geometry'''
 
 		# Load model
-		#self.model = file_name
+		self.model = file_name
 
 		# Cube size/cell resolution
 		# self.cube_size = cube_size
@@ -56,6 +59,7 @@ class Geometry():
 
 	def compute_mesh_to_volume(self, file_name):
 		'''Returns SDF grid'''
+
 		grid = np.load('/home/nuhanishat/kinova_ws/src/' + file_name)
 		return grid
 
@@ -74,6 +78,26 @@ class Geometry():
 		'''Returns normals of surface cells'''
 		norm_list = []
 		# Do more math....
+		n = len(self.voxel_grid)
+		for i in range(0, len(self.voxel_grid)):
+			for j in range(0, len(self.voxel_grid[i])):
+				for k in range(0, len(self.voxel_grid[i][j])):
+					try:
+						grad_x = self.voxel_grid[i - 1][j][k] - self.voxel_grid[i + 1][j][k]
+					except:
+						grad_x = 0
+
+					try:
+						grad_y = self.voxel_grid[i][j - 1][k] - self.voxel_grid[i][j + 1][k]
+					except:
+						grad_y = 0
+
+					try:
+						grad_z = self.voxel_grid[i][j][k - 1] - self.voxel_grid[i][j][k + 1]
+					except:
+						grad_z = 0
+
+					norm_list.append((grad_x, grad_y, grad_z))
 		return norm_list
 
 
@@ -89,6 +113,9 @@ class Geometry():
 
 		# Update with dot_product coverage percentage
 		covered_dot = np.zeros(64)
+
+
+
 		self.covered_grid += covered_dot
 
 		# Use Sprayer().is_inside_sprayer() for distance coverage

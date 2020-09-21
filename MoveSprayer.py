@@ -6,7 +6,7 @@
 import numpy as np
 
 class MoveSprayer():
-	def __init__(self,lp_file, spin_file):
+	def __init__(self):#,lp_file, spin_file):
 		''' Create a combination of paths for the sprayer
 		to follow'''
 
