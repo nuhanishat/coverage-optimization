@@ -27,7 +27,6 @@ class Sprayer():
 		# Save pose as a class variable
 		self.pose = [0,0,0] #2D --->3D[0,0,0,0,0,0]
 
-##TODO: Need to accept float as well
 	def scan_convert(self,  start_pos, end_pos):
 		full_line = []
 		dx = end_pos[0] - start_pos[0]
@@ -42,18 +41,17 @@ class Sprayer():
 			# print("STEPS", steps, abs(dx))
 	
 		else:
-			steps = int(abs(dy))
+			steps = abs(dy)
 
+		Xinc = float(dx)/float(steps)
+		Yinc = float(dy)/float(steps)
 
-
-		Xinc = float(dx)/0.1#float(steps)
-		Yinc = float(dy)/0.1#float(steps)
-
-		for i in range(0, int(steps)+1):
+		i = 0
+		while (i<steps):
 			x_new = x_new + Xinc
 			y_new = y_new + Yinc 
 			full_line.append([x_new, y_new])
-
+			i+=1
 		return full_line
 										
 	def points_on_spray_width(self, pose):
@@ -244,14 +242,14 @@ class Sprayer():
 
 		
 if __name__ == '__main__':
-	# Sprayer()
-	unit_test = Sprayer()
+	Sprayer()
+	# unit_test = Sprayer()
 	# start = [0,0,0]
 	# end = [0,6,0]
 	# ans = unit_test.scan_convert(start, end)
 	# ans = unit_test.points_on_spray_width(start)
 	# print ("LOOK HERE",ans.shape)
-	pose = [0,0,0]
+	# pose = [0,0,0]
 	# start = [0.05,0.0]
 	# end = [-0.05,0.0]
 
@@ -264,4 +262,4 @@ if __name__ == '__main__':
 	# ans = unit_test.angle_cov(np.asarray([[0,8]]),np.asarray([[0.1,0.1]]),np.asarray([[0.2,0.2]]))
 
 
-	print (ans)
+	# print (ans)
