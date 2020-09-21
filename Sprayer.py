@@ -27,23 +27,29 @@ class Sprayer():
 		# Save pose as a class variable
 		self.pose = [0,0,0] #2D --->3D[0,0,0,0,0,0]
 
-
+##TODO: Need to accept float as well
 	def scan_convert(self,  start_pos, end_pos):
 		full_line = []
 		dx = end_pos[0] - start_pos[0]
 		dy = end_pos[1] - start_pos[1]
 
+		x_new = start_pos[0]
+		y_new = start_pos[1]
+
 		steps = 0
 		if (abs(dx) > abs(dy)):
 			steps = abs(dx)
+			# print("STEPS", steps, abs(dx))
 	
 		else:
-			steps = abs(dy)
+			steps = int(abs(dy))
 
-		Xinc = float(dx)/float(steps)
-		Yinc = float(dy)/float(steps)
 
-		for i in range(0, steps):
+
+		Xinc = float(dx)/0.1#float(steps)
+		Yinc = float(dy)/0.1#float(steps)
+
+		for i in range(0, int(steps)+1):
 			x_new = x_new + Xinc
 			y_new = y_new + Yinc 
 			full_line.append([x_new, y_new])
@@ -53,9 +59,10 @@ class Sprayer():
 	def points_on_spray_width(self, pose):
 		start_pos = []
 		end_pos = []
+		mid_pos = [int(pose[0]),int(pose[1])]
 		
-		mid_pos[0] = int(pose[0])
-		mid_pos[1] = int(pose[1])
+		#mid_pos[0] = int(pose[0])
+		#mid_pos[1] = int(pose[1])
 		
 		angle = pose[2]
 
@@ -82,24 +89,27 @@ class Sprayer():
 		start_pos.append(start_pos_y)
 		end_pos.append(end_pos_x)
 		end_pos.append(end_pos_y)
-		return np.asarray(scan_convert(start_pos, end_pos))		
+		# print("start_pos", start_pos, end_pos)
+		return np.asarray(self.scan_convert(start_pos, end_pos))		
 
 	def angles_for_start_points(self, pose, start_points):
 		angles = []
-		angle_to_be_covered = 90 - (180 - self.spread_angle)
+		angle_to_be_covered = self.spread_angle#90 - (180 - self.spread_angle)
 		dtheta = angle_to_be_covered/len(start_points)
 
 		#Find angles w.r.t x-axis (see notes in PCC book)
 		angleOAB = 90 - angle_to_be_covered
-		angleAPO = 180 - pose[3]
+		angleAPO = 180 - pose[2]
 		angleAOP = 180 - (angleOAB + angleAPO)
 		anglePOB = angle_to_be_covered - angleAOP 
 
 		angle_in_x = anglePOB
-
-		for i in range(0, dtheta):
-			angle = angle_to_be_covered - dtheta
+		reduce_angle = angle_to_be_covered
+		# print (reduce_angle)
+		for i in range(0, int(len(start_points)/2)):
+			angle = reduce_angle - dtheta
 			angles.append(angle)
+			reduce_angle = angle 
 			
 		angles  = np.asarray(angles)
 		##Calculating lower half of angles
@@ -111,6 +121,7 @@ class Sprayer():
 	def points_on_spray_range(self, pose, start_points, start_angles, angles_not_in_x):
 		##Look  at  notes to understand wtf is this
 		length_PY = self.sprayer_range/np.cos(angles_not_in_x)
+		# print( (start_points.shape, start_angles.shape))
 		end_point_x = start_points[:,0] + np.cos(start_angles)*length_PY
 		end_point_y = start_points[:,1] + np.sin(start_angles)*length_PY
 		end_points = np.transpose(np.array(([end_point_x],[end_point_y])))
@@ -123,19 +134,23 @@ class Sprayer():
 		
 		# Find cells representing sprayer volume
 		area_cells = []
-		start_points = points_on_spray_width(pose)
-		angles_not_in_x, start_angles = angles_for_start_points(pose, start_points)
-		end_points = points_on_spray_range(pose, start_points, start_angles, angles_not_in_x) 
+		start_points = self.points_on_spray_width(pose)
+		start_points = np.asarray([[0.05,0.0],[0.03,0.0],[0.01,0.0],[-0.01,0.0],[-0.03,0.0],[-0.05,0.0]])
+		angles_not_in_x, start_angles = self.angles_for_start_points(pose, start_points)
+		end_points = self.points_on_spray_range(pose, start_points, start_angles, angles_not_in_x) 
 
 		for i in range(len(start_points)):
-			area_cells.append(scan_convert(start_points[i],  end_points[i]))
+			area_cells.append(self.scan_convert(start_points[i],  end_points[i]))
 
-		self.cov_area = Polygon([(start_points[0,0], start_points[1,0]), (start_points[0,len(start_points)-1],start_points[1,len(start_points)-1]), (end_points[0,0], end_points[1,0]), (end_points[0,len(end_points)-1],end_points[1,len(end_points)-1])])
+		# print ((start_points.shape))
+		# print (start_points[0,0], start_points[0,1])
+		# print (start_points[len(start_points)-1,0],start_points[len(start_points)-1,1])
+		self.cov_area = Polygon([(start_points[0,0], start_points[0,1]), (start_points[len(start_points)-1,0],start_points[len(start_points)-1,1]), (end_points[0,0], end_points[0,1]), (end_points[len(end_points)-1,0],end_points[len(end_points)-1,1])])
 
 		return  area_cells
 
 	def distance_cov(self, cell):
-		distance = math.sqrt((cell[0] - pose[0])**2 + (cell[1] - pose[1])**2)
+		distance = math.sqrt((cell[0] - self.pose[0])**2 + (cell[1] - self.pose[1])**2)
 
 		threshold_min = 0.05
 		threshold_max = 0.2
@@ -159,8 +174,12 @@ class Sprayer():
 
 		return distance_coverage
 
+##TODO: Make sure values being sent make sense for the normals
 	def angle_cov(self, cell, surface_norms, norm_sprayer):
+		# print (np.dot(norm_sprayer, surface_norms[0, 1]))
 		cos_theta = np.dot(norm_sprayer, surface_norms[cell[0], cell[1]])/(math.sqrt(norm_sprayer[0]*norm_sprayer[0] + norm_sprayer[1]*norm_sprayer[1])*math.sqrt(surface_norms[cell[0]]*surface_norms[cell[0]] + surface_norms[cell[1]]*surface_norms[cell[1]]))
+		# cos_theta = np.dot(norm_sprayer, surface_norms[0, 1])/(math.sqrt(norm_sprayer[0,0]*norm_sprayer[0,0] + norm_sprayer[0,1]*norm_sprayer[0,1])*math.sqrt(surface_norms[0,0]*surface_norms[0,0] + surface_norms[0,1]*surface_norms[0,1]))
+		# print (cos_theta.shape)
 		theta = np.degrees(np.arccos(cos_theta))
 
 		threshold_min = 45
@@ -225,4 +244,24 @@ class Sprayer():
 
 		
 if __name__ == '__main__':
-	Sprayer()	
+	# Sprayer()
+	unit_test = Sprayer()
+	# start = [0,0,0]
+	# end = [0,6,0]
+	# ans = unit_test.scan_convert(start, end)
+	# ans = unit_test.points_on_spray_width(start)
+	# print ("LOOK HERE",ans.shape)
+	pose = [0,0,0]
+	# start = [0.05,0.0]
+	# end = [-0.05,0.0]
+
+	# points = np.asarray([[0.05,0.0],[0.03,0.0],[0.01,0.0],[-0.01,0.0],[-0.03,0.0],[-0.05,0.0]])
+	# ans_not_x, ans_in_x = unit_test.angles_for_start_points(pose, points)
+	# ans = unit_test.points_on_spray_range(pose, points, ans_in_x, ans_not_x)
+	# ans = unit_test.compute_spray_area(pose)
+
+	# ans = unit_test.distance_cov([0,8])
+	# ans = unit_test.angle_cov(np.asarray([[0,8]]),np.asarray([[0.1,0.1]]),np.asarray([[0.2,0.2]]))
+
+
+	print (ans)
